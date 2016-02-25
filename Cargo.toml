@@ -1,0 +1,8 @@
+[package]
+name = "raytracer"
+version = "0.1.0"
+authors = ["Jose Falcon <chedkid@gmail.com>"]
+
+[dependencies]
+cgmath = "0.7"
+image = "*"
