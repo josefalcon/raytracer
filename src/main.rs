@@ -148,6 +148,7 @@ struct Scene {
     camera: Matrix4<f32>,
     spheres: Vec<Sphere>,
     lights: Vec<Sphere>,
+    ambient: Vector3<f32>,
 }
 impl Scene {
     fn new(camera: Matrix4<f32>) -> Scene {
@@ -155,7 +156,12 @@ impl Scene {
             camera: camera,
             spheres: vec![],
             lights: vec![],
+            ambient: vec3(0.2, 0.2, 0.2),
         }
+    }
+    fn ambient(&mut self, color: Vector3<f32>) -> &mut Scene {
+        self.ambient = color;
+        self
     }
     fn add_light(&mut self, center: Point3<f32>, radius: f32, color: Vector3<f32>) -> &mut Scene {
         self.lights.push(Sphere::new(center, radius, color));
@@ -177,26 +183,28 @@ impl Scene {
                 _ => {}
             }
         }
-        if closest_sphere.is_none() { return vec3(0.82, 0.82, 0.82); }
+        if closest_sphere.is_none() { return self.ambient }
+
+        let closest_sphere = closest_sphere.unwrap();
 
         for light in &self.lights {
             let intersection_point = ray.point_at(min_t);
             let light_direction = (light.center - intersection_point).normalize();
             let light_ray = Ray::new(intersection_point, light_direction);
             for sphere in &self.spheres {
-                if sphere == closest_sphere.unwrap() { continue; }
+                if sphere == closest_sphere { continue; }
                 if sphere.intersect(&light_ray).is_some() {
                     // in shadow...
-                    println!("{:?}", "in shadow");
-                    return vec3(0.0, 0.0, 0.0);
+                    return closest_sphere.color * self.ambient;
                 }
             }
 
-            let sphere = closest_sphere.unwrap();
-            let scale = (intersection_point - sphere.center).normalize().dot(light_direction).max(0.0);
-            return (sphere.color * scale);
+            let lambert = (intersection_point - closest_sphere.center).normalize().dot(light_direction).max(0.0);
+            let diffuse = vec3(0.5, 0.4, 0.5);
+            let illumination = self.ambient + (diffuse * lambert);
+            return (closest_sphere.color * illumination);
         }
-        return vec3(0.82, 0.82, 0.82);
+        return self.ambient;
     }
     fn render(&self, width: u32, height: u32) {
         let mut img = ImageBuffer::new(width, height);
@@ -219,12 +227,13 @@ impl Scene {
 }
 
 fn main() {
-    let transform = Camera::new(Point3::new(0.0, 0.0, 0.0), Point3::new(4.0, 4.0, 4.0)).transform();
+    let transform = Camera::new(Point3::new(-5.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0)).transform();
 
     let mut scene = Scene::new(transform);
     scene
-        .add_light(Point3::new(-10.0, -10.0, 10.0), 12.0, vec3(1.0, 0.94, 0.88))
-        .add_sphere(Point3::new(15.0, 15.0, 12.0), 10.0, vec3(0.0, 1.0, 0.0))
-        .add_sphere(Point3::new(15.0, 15.0, 15.0), 5.0, vec3(0.21, 0.1, 0.47));
+        .ambient(vec3(0.3, 0.3, 0.3))
+        .add_light(Point3::new(-0.5, -2.0, 0.0), 1.0, vec3(1.0, 1.0, 1.0))
+        .add_sphere(Point3::new(4.0, 0.0, 3.0), 3.0, vec3(1.0, 0.23, 0.47))
+        .add_sphere(Point3::new(1.0, 0.0, 0.0), 1.0, vec3(0.21, 0.1, 0.47));
     scene.render(1024, 1024);
 }
